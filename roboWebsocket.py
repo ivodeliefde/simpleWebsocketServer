@@ -1,21 +1,20 @@
 # -*- coding: utf-8 -*-
 
 """
-Chat Server
+Robo location Server
 ===========
 
-This simple application uses WebSockets to run a primitive chat server.
+This application uses WebSockets to run send and recieve the Tensing robot location.
 """
 
 import os
 import logging
-import redis
 import gevent
-from flask import Flask, render_template
+from flask import Flask
 from flask_sockets import Sockets
 
 REDIS_URL = os.environ['REDIS_URL']
-REDIS_CHAN = 'chat'
+REDIS_CHAN = 'robo'
 
 app = Flask(__name__)
 app.debug = 'DEBUG' in os.environ
@@ -23,9 +22,7 @@ app.debug = 'DEBUG' in os.environ
 sockets = Sockets(app)
 redis = redis.from_url(REDIS_URL)
 
-
-
-class ChatBackend(object):
+class RoboBackend(object):
     """Interface for registering and updating WebSocket clients."""
 
     def __init__(self):
@@ -62,17 +59,12 @@ class ChatBackend(object):
         """Maintains Redis subscription in the background."""
         gevent.spawn(self.run)
 
-chats = ChatBackend()
-chats.start()
-
-
-@app.route('/')
-def hello():
-    return render_template('index.html')
+RoboWebsocket = RoboBackend()
+RoboWebsocket.start()
 
 @sockets.route('/submit')
 def inbox(ws):
-    """Receives incoming chat messages, inserts them into Redis."""
+    """Receives incoming location updates, inserts them into Redis."""
     while not ws.closed:
         # Sleep to prevent *constant* context-switches.
         gevent.sleep(0.1)
@@ -84,11 +76,11 @@ def inbox(ws):
 
 @sockets.route('/receive')
 def outbox(ws):
-    """Sends outgoing chat messages, via `ChatBackend`."""
+    """Sends outgoing location updates, via `RoboBackend`."""
     chats.register(ws)
 
     while not ws.closed:
-        # Context switch while `ChatBackend.start` is running in the background.
+        # Context switch while `RoboBackend.start` is running in the background.
         gevent.sleep(0.1)
 
 
